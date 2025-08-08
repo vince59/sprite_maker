@@ -37,7 +37,11 @@ fn create_and_overlay_filmstrip(
         }
     }
 
-    let delta_x = (width1 - photo_width) / 2;
+    let delta_x = if width1 < photo_width {
+        0
+    } else {
+        (width1 - photo_width) / 2
+    };
 
     // Superposer la pellicule de la seconde image
     for i in 0..num_photos {
@@ -45,11 +49,7 @@ fn create_and_overlay_filmstrip(
             for y in 0..photo_height {
                 let pixel = img2.get_pixel(x + (i * photo_width), y);
                 let pixel2 = output_image.get_pixel(i * width1 + x + delta_x, y);
-                let pixel_to_use = if pixel[3] == 0 {
-                    *pixel2
-                } else {
-                    pixel
-                };
+                let pixel_to_use = if pixel[3] == 0 { *pixel2 } else { pixel };
                 output_image.put_pixel(i * width1 + x + delta_x, y, pixel_to_use);
             }
         }
@@ -112,6 +112,53 @@ fn add_grid_to_image(
     Ok(())
 }
 
+fn combine_images_vertically(
+    input_filename1: &str,
+    input_filename2: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Ouvrir la première image
+    let img1 = image::open(input_filename1)?;
+    let (width1, height1) = img1.dimensions();
+
+    // Ouvrir la deuxième image
+    let img2 = image::open(input_filename2)?;
+    let (width2, height2) = img2.dimensions();
+
+    // Calculer la taille de la nouvelle image (la hauteur sera la somme des deux images)
+    let output_width = std::cmp::max(width1, width2); // Largeur est la plus grande des deux
+    let output_height = height1 + height2; // Hauteur est la somme des hauteurs
+
+    // Créer une nouvelle image pour la sortie
+    let mut output_image = RgbaImage::new(output_width, output_height);
+
+    // Copier les pixels de la première image dans la nouvelle image
+    for x in 0..width1 {
+        for y in 0..height1 {
+            let pixel = img1.get_pixel(x, y);
+            output_image.put_pixel(x, y, pixel);
+        }
+    }
+
+    // Copier les pixels de la deuxième image dans la nouvelle image (en dessous de la première image)
+    for x in 0..width2 {
+        for y in 0..height2 {
+            let pixel = img2.get_pixel(x, y);
+            output_image.put_pixel(x, y + height1, pixel); // Décalage vertical
+        }
+    }
+
+    // Générer le nom du fichier de sortie
+    let output_filename = input_filename1.replace(".png", input_filename2);
+
+    // Créer un chemin à partir du nom de fichier généré
+    let output_path = Path::new(&output_filename);
+
+    // Sauvegarder l'image modifiée directement dans le fichier de sortie
+    output_image.save(output_path)?;
+
+    Ok(())
+}
+
 fn main() {
     // Ajout d'une grille sur une image :
     /*
@@ -124,20 +171,54 @@ fn main() {
         eprintln!("Erreur lors du traitement de l'image : {}", e);
     }*/
 
-    // créatio d'une pellicule photo
-    let input_filename1 = "factory.png"; // Première image pour la pellicule répétée
-    let input_filename2 = "fire.png"; // Seconde image (la pellicule)
-    let photo_width = 64; // Largeur de chaque photo
-    let photo_height = 64; // Hauteur de chaque photo
-    let num_photos = 10; // Nombre de photos dans la pellicule
+    // création d'une pellicule photo
+    /*
+    let images:Vec<&'static str>  = vec![
+        "temple.png",
+        "space_port.png",
+        "labo.png",
+        "radio.png",
+        "greenhouse.png",
+        "greenhouse2.png",
+        "greenhouse3.png",
+        "rocket.png"
+    ];
+    for img in images {
+        let input_filename1 = img; // Première image pour la pellicule répétée
+        let input_filename2 = "fire.png"; // Seconde image (la pellicule)
+        let photo_width = 64; // Largeur de chaque photo
+        let photo_height = 64; // Hauteur de chaque photo
+        let num_photos = 10; // Nombre de photos dans la pellicule
 
-    if let Err(e) = create_and_overlay_filmstrip(
-        input_filename1,
-        input_filename2,
-        photo_width,
-        photo_height,
-        num_photos,
-    ) {
-        eprintln!("Erreur lors du traitement des images : {}", e);
+        println!("{}",input_filename1);
+        if let Err(e) = create_and_overlay_filmstrip(
+            input_filename1,
+            input_filename2,
+            photo_width,
+            photo_height,
+            num_photos,
+        ) {
+            eprintln!("Erreur lors du traitement des images : {}", e);
+        }
+    }
+    */
+    //met la seconde image sous la première
+    let images: Vec<(&'static str, &'static str)> = vec![
+        ("temple.png", "templefire.png"),
+        ("space_port.png", "space_portfire.png"),
+        ("labo.png", "labofire.png"),
+        ("radio.png", "radiofire.png"),
+        ("greenhouse.png", "greenhousefire.png"),
+        ("greenhouse2.png", "greenhouse2fire.png"),
+        ("greenhouse3.png", "greenhouse3fire.png"),
+        ("rocket.png", "rocketfire.png"),
+    ];
+    for (img1, img2) in images {
+        let input_filename1 = img1; // Première image
+        let input_filename2 = img2; // Deuxième image
+
+        if let Err(e) = combine_images_vertically(input_filename1, input_filename2) {
+            eprintln!("Erreur lors du traitement des images : {}", e);
+        }
     }
 }
